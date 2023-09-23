@@ -32,7 +32,7 @@ test_loader = DataLoader(
 # 신경망 생성
 class Encoder(nn.Module):  # 인코더 네트워크 생성
     def __init__(self, encoded_space_dim, fc2_input_dim):
-        super().__init__
+        super().__init__()
 
         self.encoder_cnn = nn.Sequential(
             nn.Conv2d(1, 8, 3, stride=2, padding=1),
