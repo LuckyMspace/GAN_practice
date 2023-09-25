@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pylab as plt
+from matplotlib import font_manager
 
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
@@ -90,3 +91,80 @@ class Decoder(nn.Module):  # 디코더 네트워크 생성
         return x
     
     # 손실 함수 및 옵티마이저
+
+encoder = Encoder(encoded_space_dim=4, fc2_input_dim=128)
+decoder = Decoder(encoded_space_dim=4, fc2_input_dim=128)
+encoder.to(device)
+decoder.to(device)
+
+params_to_optimize = [
+    {'params' : encoder.parameters()},
+    {'params' : decoder.parameters()}
+]  # 인코더와 디코더에서 사용할 파라미터를 다르게 지정
+
+optim = torch.optim.Adam(params_to_optimize, lr=0.001, weight_decay=1e-05)
+loss_fn = torch.nn.MSELoss()
+
+# 노이즈 데이터 함수
+
+def add_noise(inputs,noise_factor=0.3):
+    noisy = inputs+torch.randn_like(inputs) * noise_factor
+    noisy = torch.clip(noisy,0.,1.)
+    return noisy
+
+# 모델 학습 함수
+
+def train_epoch(encoder, decoder, device, dataloader, loss_fn, optimizer,noise_factor=0.3):
+    encoder.train()
+    decoder.train()
+    train_loss = []
+    for image_batch, _ in dataloader: 
+        image_noisy = add_noise(image_batch,noise_factor)
+        image_noisy = image_noisy.to(device)    
+        encoded_data = encoder(image_noisy)
+        decoded_data = decoder(encoded_data)
+        loss = loss_fn(decoded_data, image_noisy)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        train_loss.append(loss.detach().cpu().numpy())
+    return np.mean(train_loss)
+
+def test_epoch(encoder, decoder, device, dataloader, loss_fn,noise_factor=0.3):
+    encoder.eval()
+    decoder.eval()
+    with torch.no_grad(): 
+        conc_out = []
+        conc_label = []
+        for image_batch, _ in dataloader:
+            image_batch = image_batch.to(device)
+            encoded_data = encoder(image_batch)
+            decoded_data = decoder(encoded_data)
+            conc_out.append(decoded_data.cpu())
+            conc_label.append(image_batch.cpu())
+        conc_out = torch.cat(conc_out)
+        conc_label = torch.cat(conc_label) 
+        val_loss = loss_fn(conc_out, conc_label)
+    return val_loss.data
+
+def test_epoch(encoder, decoder, device, dataloader, loss_fn,noise_factor=0.3):
+    encoder.eval()
+    decoder.eval()
+    with torch.no_grad(): 
+        conc_out = []
+        conc_label = []
+        for image_batch, _ in dataloader:
+            image_batch = image_batch.to(device)
+            encoded_data = encoder(image_batch)
+            decoded_data = decoder(encoded_data)
+            conc_out.append(decoded_data.cpu())
+            conc_label.append(image_batch.cpu())
+        conc_out = torch.cat(conc_out)
+        conc_label = torch.cat(conc_label) 
+        val_loss = loss_fn(conc_out, conc_label)
+    return val_loss.data
+
+# from matplotlib import font_manager
+font_fname = 'C:/Windows/Fonts/malgun.ttf'
+font_family = font_manager.FontProperties(fname=font_fname).get_name()
+plt.rcParams["font.family"] = font_family
